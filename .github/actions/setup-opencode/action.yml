@@ -1,0 +1,18 @@
+name: Setup opencode and git
+description: Install the opencode CLI and configure git identity for agent runs.
+
+runs:
+  using: composite
+  steps:
+    - name: Install opencode
+      shell: bash
+      run: |
+        curl -fsSL https://opencode.ai/install | bash
+        echo "opencode installed at /home/runner/.opencode/bin/opencode"
+        /home/runner/.opencode/bin/opencode --version
+
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

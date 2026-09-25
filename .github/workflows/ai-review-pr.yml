@@ -1,0 +1,89 @@
+name: AI Agent — Review PR
+
+# Manual only. Dispatches an opencode agent to review an open pull request from its diff
+# and posts the findings as a PR review comment.
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to review.
+        required: true
+        type: number
+      model:
+        description: opencode model to use.
+        required: false
+        default: opencode/big-pickle
+        type: string
+      auto:
+        description: Run non-interactively (--auto).
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup opencode
+        uses: ./.github/actions/setup-opencode
+
+      - name: Capture PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr view "${{ inputs.pr_number }}" --json headRefName,baseRefName,title,body \
+            > /tmp/pr-meta.json
+          gh pr diff "${{ inputs.pr_number }}" > /tmp/pr.diff
+          echo "::notice::Captured PR diff ($(wc -l </tmp/pr.diff) lines)"
+
+      - name: Run AI reviewer
+        id: agent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/prompt.md <<PROMPT
+          You are a senior code reviewer. Review GitHub Pull Request #${{ inputs.pr_number }} of this repository.
+
+          PR title: $(jq -r .title /tmp/pr-meta.json)
+
+          Read the diff at /tmp/pr.diff and read the relevant project artifacts (spec 1-spec/, design 2-design/, decisions decisions/, and the active ADR register docs/adr/). Verify the change is consistent with them. Check correctness, security, and maintainability. Report concrete, actionable findings with file:line references.
+
+          After reviewing, save your report to /tmp/review-output.md.
+          PROMPT
+          AUTO=""
+          if [ "${{ inputs.auto }}" = "true" ]; then AUTO="--auto"; fi
+          set +e
+          /home/runner/.opencode/bin/opencode run ${AUTO} \
+            --model "${{ inputs.model }}" \
+            "$(cat /tmp/prompt.md)" \
+            2>&1 | tee /tmp/agent.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+          if [ -f /tmp/review-output.md ]; then
+            cp /tmp/review-output.md /tmp/final-review.md
+          else
+            echo "AI produced no explicit report; using agent log." >&2
+            cp /tmp/agent.log /tmp/final-review.md
+          fi
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -s /tmp/final-review.md ]; then
+            echo "::notice::AI produced no review output."
+            exit 0
+          fi
+          gh pr review "${{ inputs.pr_number }}" \
+            --comment --body-file /tmp/final-review.md
+          echo "::notice::AI review posted to PR #${{ inputs.pr_number }}"
