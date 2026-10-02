@@ -1,0 +1,6 @@
+packages:
+  - 3-code/api
+  - 3-code/buyer-app
+
+allowBuilds:
+  esbuild: true

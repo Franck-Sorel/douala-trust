@@ -21,6 +21,7 @@ There is no dedicated deploy skill: planned deploy work (IaC tasks, runbook task
 | File | Title | Trigger |
 |------|-------|---------|
 | [DEC-mvp-stack](../decisions/DEC-mvp-stack.md) | MVP backend and apps use Node + TypeScript | Choosing runtimes/hosting tier |
+| [DEC-mvp-tooling](../decisions/DEC-mvp-tooling.md) | Scaffolding toolchain: Fastify, Drizzle, Vitest, pnpm workspaces, CI | CI for the repo; runtimes for Node services |
 <!-- Add rows as decisions are recorded. File column: [DEC-kebab-name](../decisions/DEC-kebab-name.md) -->
 
 ---
