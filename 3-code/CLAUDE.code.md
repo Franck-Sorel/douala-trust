@@ -8,7 +8,17 @@ This phase contains the **implementation**. Focus on clean, tested, maintainable
 
 ## Components
 
-<!-- Add an entry for each component/codebase -->
+### API
+
+- **Directory**: [`api/`](api/)
+- **Technology**: Node.js + TypeScript (strict), Fastify, Drizzle + drizzle-kit (PostgreSQL), Vitest
+- **Responsibility**: Single backend — request create/commit, verifier discovery/shortlist/claim, state-transition validation, idempotency, evidence access control
+
+### Buyer App
+
+- **Directory**: [`buyer-app/`](buyer-app/)
+- **Technology**: Node.js + TypeScript (strict), Vite, Vitest
+- **Responsibility**: Mobile-first PWA for the buyer — create request + requirements, review evidence, record decision
 
 ---
 
