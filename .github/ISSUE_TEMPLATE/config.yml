@@ -1,0 +1,6 @@
+# Issue template chooser configuration.
+# Tells GitHub which templates to show in the "New issue" chooser.
+# blank_issues_enabled: keeps a blank issue available for anything that doesn't fit
+#   the structured templates (e.g. a quick question or a cross-cutting discussion),
+#   so we don't force structure where it adds friction.
+blank_issues_enabled: true
