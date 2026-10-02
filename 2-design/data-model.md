@@ -21,6 +21,9 @@ erDiagram
   INSPECTION ||--o{ REQUIREMENT_RESULT : records
   INSPECTION ||--o{ HISTORY_EVENT : emits
   VERIFICATION_REQUEST ||--o{ HISTORY_EVENT : emits
+  USER ||--o| VERIFIER : "is one"
+  VERIFIER ||--o{ OFFER : receives
+  VERIFICATION_REQUEST ||--o{ OFFER : "shortlists"
 ```
 
 ## Entities
@@ -29,17 +32,34 @@ erDiagram
 - `id`, `role` (buyer | verifier | platform), `phone`, `kyc_status` (for verifiers,
   ADR-032/041), `capabilities[]` (verifier only, ADR-027)
 
+### VERIFIER
+- `id`, `user_id` → USER, `availability_status` (`AVAILABLE` | `BUSY` | `SNOOZED` | `BANNED`)
+  ([DEC-verifier-selection](../decisions/DEC-verifier-selection.md))
+- `version` (optimistic concurrency on claim)
+- `AVAILABLE` is the only selection filter; **no rating/ranking field in the MVP**.
+
+### OFFER
+- `id`, `request_id`, `verifier_id`, `status` (`PENDING` | `CLAIMED` | `DECLINED` | `EXPIRED`),
+  `version`, `created_at`, `claimed_at?`
+- First `CLAIMED` wins; others released. Expiry window 24h → `EXPIRED` (re-select).
+  ([DEC-verifier-selection](../decisions/DEC-verifier-selection.md))
+
 ### VERIFICATION_REQUEST
 - `id`, `buyer_id`, `product_description`, `location` (Douala), `expected_identity[]`
   (serial/IMEI/notes, ADR-005/041), `state`
 - Transaction state separate from inspection ([DEC-inspection-state-separation](../decisions/DEC-inspection-state-separation.md), ADR-063)
 - `version` (optimistic concurrency, ADR-138/139)
+- Pre-commit drafts are ephemeral/not persisted; a committed request is attributed to
+  `buyer_id` ([DEC-deferred-buyer-identity](../decisions/DEC-deferred-buyer-identity.md))
 
 ### REQUIREMENT
 - `id`, `request_id`, `text`, `expected_result`, `test_method`, `required_evidence`,
-  `priority` ([DEC-requirements-first-class](../decisions/DEC-requirements-first-class.md), ADR-012)
-- Versioned / frozen: `requirement_set_version` captures the frozen set an inspection ran
-  against (ADR-044, ADR-128/129)
+  `priority`, `version` ([DEC-requirements-first-class](../decisions/DEC-requirements-first-class.md), ADR-012)
+- Each requirement row is versioned; `request.requirement_set_version` captures the frozen
+  set an inspection runs against (ADR-044, ADR-128/129). Evaluations reference the exact
+  requirement `version` applied ([AC-req-versioned](../../1-spec/requirements/REQ-F-requirements-first-class.md)).
+- The **freeze trigger** (freezing the set when an inspection starts) is an **Epic 2** action;
+  Epic 1 builds the version-aware model only.
 
 ### INSPECTION
 - `id`, `request_id`, `verifier_id`

@@ -87,6 +87,8 @@ When an artifact (goal, user story, requirement) is no longer relevant:
 | [DEC-inspection-state-separation](../decisions/DEC-inspection-state-separation.md) | Transaction/inspection/decision are independent states | Lifecycle requirements |
 | [DEC-evidence-immutable-append-only](../decisions/DEC-evidence-immutable-append-only.md) | Evidence history is immutable | Evidence capture requirements |
 | [DEC-evidence-access-control](../decisions/DEC-evidence-access-control.md) | Evidence access role-based, least-privilege | Security requirements |
+| [DEC-verifier-selection](../decisions/DEC-verifier-selection.md) | Buyer selects verifiers; first responder claims | Defining assignment / roles |
+| [DEC-deferred-buyer-identity](../decisions/DEC-deferred-buyer-identity.md) | Guest drafting; identity at request step | Identity / request-list requirements |
 
 ---
 

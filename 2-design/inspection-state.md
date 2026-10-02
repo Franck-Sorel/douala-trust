@@ -11,6 +11,13 @@ Transaction, Inspection, and the Buyer decision are modeled separately
 ([DEC-inspection-state-separation](../decisions/DEC-inspection-state-separation.md)); a
 completed inspection never implies buyer acceptance or a payment release.
 
+**Buyer-driven assignment:** a request moves `REQUIREMENTS_SET → VERIFIER_OFFERING` when the
+buyer shortlists up to 3 `AVAILABLE` verifiers; the **first** verifier to claim wins and the
+request moves to `ASSIGNED` ([DEC-verifier-selection](../decisions/DEC-verifier-selection.md)).
+The verifier availability machine above governs who can be selected; the claim is a critical,
+idempotent, optimistic-concurrency write, and losing the race returns `ALREADY_ASSIGNED`
+([DEC-idempotency](../decisions/DEC-idempotency.md)).
+
 ```mermaid
 stateDiagram-v2
   direction LR
@@ -18,11 +25,22 @@ stateDiagram-v2
   state "Verification Request" as R {
     [*] --> CREATED
     CREATED --> REQUIREMENTS_SET
-    REQUIREMENTS_SET --> ASSIGNED
+    REQUIREMENTS_SET --> VERIFIER_OFFERING
+    VERIFIER_OFFERING --> ASSIGNED
+    VERIFIER_OFFERING --> REQUIREMENTS_SET : all offers declined/expired (re-select)
     ASSIGNED --> INSPECTION
     INSPECTION --> REVIEW
     REVIEW --> DECISION_RECORDED
     DECISION_RECORDED --> [*]
+  }
+
+  state "Verifier Availability" as V {
+    [*] --> AVAILABLE
+    AVAILABLE --> BUSY : claim accepted
+    AVAILABLE --> SNOOZED : verifier self-set
+    SNOOZED --> AVAILABLE : verifier self-set
+    AVAILABLE --> BANNED : platform compliance
+    BUSY --> AVAILABLE : inspection ends / doesn't start
   }
 
   state "Inspection" as I {

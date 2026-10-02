@@ -20,6 +20,7 @@ There is no dedicated deploy skill: planned deploy work (IaC tasks, runbook task
 
 | File | Title | Trigger |
 |------|-------|---------|
+| [DEC-mvp-stack](../decisions/DEC-mvp-stack.md) | MVP backend and apps use Node + TypeScript | Choosing runtimes/hosting tier |
 <!-- Add rows as decisions are recorded. File column: [DEC-kebab-name](../decisions/DEC-kebab-name.md) -->
 
 ---

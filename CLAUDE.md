@@ -39,10 +39,9 @@ MVP scope).
 **Gap analysis**: 2026-09-23 — fresh — open: none (MVP scope spec drafted; remaining
 requirement/user-story/status approvals pending user confirmation)
 
-**Design documents**: architecture Draft; data-model Draft; inspection-state Draft; evidence-security Draft
+**Design documents**: architecture Draft; data-model Draft; inspection-state Draft; evidence-security Draft; api Draft
 
-**Completeness assessment**: 2026-09-23 — fresh — open: none (MVP design drafted from ADR
-decisions; doc and gate approvals pending user confirmation)
+**Completeness assessment**: 2026-09-23 — stale (design changed since — added DEC-mvp-stack / DEC-verifier-selection / DEC-deferred-buyer-identity and api.md; data-model & inspection-state updated for buyer-driven verifier selection)
 
 ---
 

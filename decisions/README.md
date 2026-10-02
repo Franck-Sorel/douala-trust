@@ -23,6 +23,9 @@ source.
 | [DEC-idempotency](DEC-idempotency.md) | Critical writes idempotent with validation | ADR-070→073, 107, 141 |
 | [DEC-time-semantics](DEC-time-semantics.md) | Typed timestamps, server UTC time | ADR-098, 099, 100, 101 |
 | [DEC-authoritative-single-source](DEC-authoritative-single-source.md) | Authoritative state is single source of truth | ADR-130, 131, 132, 133, 134 |
+| [DEC-mvp-stack](DEC-mvp-stack.md) | MVP backend and apps use Node + TypeScript | design analysis (stack) |
+| [DEC-verifier-selection](DEC-verifier-selection.md) | Buyer selects verifiers; first responder claims | ADR-003, 004, 017, 063, 073, 135, 139, 141 |
+| [DEC-deferred-buyer-identity](DEC-deferred-buyer-identity.md) | Guest drafting; identity captured at request step | design analysis; ADR-063 |
 
 ## How decisions are used
 
