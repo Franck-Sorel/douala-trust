@@ -266,8 +266,7 @@ jobs:
             --base "${BASE}" \
             --head "${BRANCH}" \
             --title "${TITLE}" \
-            --body-file /tmp/body.md || \
-          echo "::notice::PR may already exist for this branch"
+            --body-file /tmp/body.md
 
       - name: No changes notice
         if: env.NO_CHANGES == 'true'
