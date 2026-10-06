@@ -24,7 +24,7 @@ This repository uses a structured, AI-first development lifecycle. All project k
 
 ### Current State
 
-**Phase**: Design
+**Phase**: Code
 
 **Summary**: MVP design in progress, grounded in the ADR decision set. The full ADR register
 (ADR-001..141) is the source in `docs/adr/`; active `DEC-*` records in `decisions/` map to
@@ -32,7 +32,8 @@ it. Specification artifacts (stakeholders, MVP constraints/assumptions/goals/req
 are drafted. MVP = one complete verification transaction for a Yaoundé buyer ↔ Douala
 product. Hosting/stack: managed cloud API + Postgres + object-storage evidence, mobile-first
 PWA for verifier evidence capture (deferred live video, payments and disputes are out of
-MVP scope).
+MVP scope). Code phase entered via the issue #5 scaffold PR: component directories (`api`,
+`buyer-app`) created and the Node+TS toolchain recorded (DEC-mvp-tooling).
 
 **Spec artifacts**: stakeholders, constraints, assumptions, goals, user stories, requirements
 
@@ -41,7 +42,13 @@ requirement/user-story/status approvals pending user confirmation)
 
 **Design documents**: architecture Draft; data-model Draft; inspection-state Draft; evidence-security Draft; api Draft
 
-**Completeness assessment**: 2026-09-23 — stale (design changed since — added DEC-mvp-stack / DEC-verifier-selection / DEC-deferred-buyer-identity and api.md; data-model & inspection-state updated for buyer-driven verifier selection)
+**Completeness assessment**: 2026-09-23 — passed: user accepted to proceed (Completeness assessment remained stale; no Critical findings — Design→Code gate advanced via the issue #5 scaffold PR)
+
+**Components**: api, buyer-app
+
+**Implementation plan**: created 2026-10-02 — 1 phase, 3 tasks
+
+**Task progress**: 3/3 tasks done — Phase 1 (Repo Scaffold) complete
 
 ---
 

@@ -30,9 +30,19 @@
 
 | ID | Task | Priority | Status | Req | Dependencies | Updated | Notes |
 |----|------|----------|--------|-----|--------------|---------|-------|
+| TASK-scaffold-api | Scaffold the `api` component: pnpm workspace, strict TS, Fastify, Drizzle + drizzle-kit with a committed migration, Vitest, lint/build/test/migrate scripts | P0 | Done | - | - | 2026-10-02 | Infrastructure (issue #5) |
+| TASK-scaffold-buyer-app | Scaffold the `buyer-app` component: pnpm workspace, strict TS, Vite, Vitest, lint/build/test scripts | P0 | Done | - | - | 2026-10-02 | Infrastructure (issue #5) |
+| TASK-ci-lint | Add `.github/workflows/ci.yml`: pnpm install, per-workspace typecheck/lint/test, API migration check with Postgres service | P0 | Done | - | TASK-scaffold-api, TASK-scaffold-buyer-app | 2026-10-02 | Infrastructure (issue #5) |
 
 <!-- Add one section per component (matching per-component directories in 3-code/). -->
 <!-- Example: ### Backend, ### Frontend, etc. -->
+
+### API
+
+| ID | Task | Priority | Status | Req | Dependencies | Updated | Notes |
+|----|------|----------|--------|-----|--------------|---------|-------|
+
+<!-- ### Buyer App -->
 
 ### Deploy & Operations
 
@@ -47,14 +57,14 @@ Defines the order in which tasks should be executed. Tasks are grouped into phas
 
 <!-- Update this section whenever tasks are created, reordered, or cancelled. -->
 
-### Phase 1: [Name]
+### Phase 1: Repo Scaffold
 
 **Capabilities delivered:**
-- [What becomes possible after this phase]
-- [Reference GOAL-* Success Criteria where applicable]
+- Two component codebases (`api`, `buyer-app`) that type-check, lint, test, and build independently.
+- A committed, versioned schema-migration mechanism wired to PostgreSQL for the API.
+- CI that runs the project's tests/lint on PR (GitHub issue #5 acceptance criteria).
 
 **Tasks:**
-1. TASK-kebab-name
-2. TASK-kebab-name
-
-<!-- Add more phases as needed: ### Phase 2, ### Phase 3, ... -->
+1. TASK-scaffold-api
+2. TASK-scaffold-buyer-app
+3. TASK-ci-lint

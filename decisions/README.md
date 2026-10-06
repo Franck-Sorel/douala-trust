@@ -26,6 +26,7 @@ source.
 | [DEC-mvp-stack](DEC-mvp-stack.md) | MVP backend and apps use Node + TypeScript | design analysis (stack) |
 | [DEC-verifier-selection](DEC-verifier-selection.md) | Buyer selects verifiers; first responder claims | ADR-003, 004, 017, 063, 073, 135, 139, 141 |
 | [DEC-deferred-buyer-identity](DEC-deferred-buyer-identity.md) | Guest drafting; identity captured at request step | design analysis; ADR-063 |
+| [DEC-mvp-tooling](DEC-mvp-tooling.md) | Scaffolding toolchain: Fastify, Drizzle, Vitest, pnpm workspaces, CI | design analysis (DEC-mvp-stack) |
 
 ## How decisions are used
 
@@ -36,7 +37,7 @@ source.
 
 ## Relationship to the ADR register
 
-The 141 ADRs in `docs/adr/` are the complete, deduplicated source. The 16 DEC records above
+The 141 ADRs in `docs/adr/` are the complete, deduplicated source. The 17 DEC records above
 are the subset that actively **constrains the MVP** (its invariants and operational
 safeguards). Post-MVP decisions (projections, outbox, dead-letter, AI, dispute engine,
 custody network, complex concurrency) are documented in the register and reappear as DEC
