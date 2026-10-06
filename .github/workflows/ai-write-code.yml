@@ -1,13 +1,25 @@
 name: AI Agent — Write Code
 
-# Manual only. Dispatches an opencode agent to implement a task directly in the working
-# tree, then opens a PR with the changes it made.
+# Long-running task handoff.
+#
+# Preferred flow (see .agents/README.md): decide everything locally -> freeze the outcome as
+# a task spec in .agents/tasks/<name>.md -> commit and push it on a non-main branch. The push
+# triggers this workflow, which runs an opencode agent on an Ubuntu runner to implement the
+# FROZEN spec and opens a PR. The agent makes NO decisions; it follows the spec verbatim and
+# reports any genuinely open item instead of guessing.
+#
+# workflow_dispatch remains available as a fallback: pass frozen task text, or just an issue
+# number (the issue body becomes the task). Same handoff, same no-decision rule.
 on:
   workflow_dispatch:
     inputs:
       task:
-        description: Task for the AI agent to implement (raw code, reflects the SDLC artifacts).
-        required: true
+        description: Raw frozen task text for the agent (alternative to a committed task spec).
+        required: false
+        type: string
+      issue:
+        description: Issue to link from the PR (e.g. 5).
+        required: false
         type: string
       base_branch:
         description: Base branch for the resulting PR.
@@ -29,6 +41,12 @@ on:
         required: false
         default: true
         type: boolean
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - ".agents/tasks/*.md"
+      - "!.agents/tasks/_template.md"
 
 permissions:
   contents: write
@@ -41,15 +59,101 @@ concurrency:
 jobs:
   write:
     runs-on: ubuntu-latest
+    services:
+      # Same shape as ci.yml's migrations job: lets the agent actually apply migrations.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: douala_trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.base_branch }}
+          # dispatch -> base_branch (main by default); push -> the pushed branch (which holds
+          # the frozen task spec). fetch-depth 0 so the spec diff can be resolved below.
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.base_branch || github.ref_name }}
           fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Setup opencode
         uses: ./.github/actions/setup-opencode
+
+      - name: Resolve frozen task input (committed spec or dispatch text)
+        id: taskin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TASK: ${{ inputs.task }}
+          DISPATCH_ISSUE: ${{ inputs.issue }}
+        run: |
+          # --- Decide the PR base branch ---
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE="main"
+          else
+            BASE="${{ inputs.base_branch }}"
+          fi
+          echo "BASE=${BASE}" >> "$GITHUB_ENV"
+
+          # --- Resolve the task body ---
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Files changed by this push under .agents/tasks/
+            BEFORE="${{ github.event.before }}"
+            FILES=""
+            if [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+               && ! git rev-parse -q --verify "$BEFORE" >/dev/null; then
+              echo "-- first push on branch: no parent to diff against --" >&2
+              FILES=""
+            else
+              FILES=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- .agents/tasks/ 2>/dev/null || true)
+            fi
+            # Fallback: any task spec present on this branch (exclude the template)
+            if [ -z "$FILES" ]; then
+              FILES=$(ls .agents/tasks/*.md 2>/dev/null | grep -v '/_template.md' || true)
+            fi
+            if [ -z "$FILES" ]; then
+              echo "::error::No task spec found under .agents/tasks/ on this branch."
+              echo "::error::Write a spec from .agents/tasks/_template.md and commit it."
+              exit 1
+            fi
+            : > /tmp/task.md
+            for f in $FILES; do
+              echo "==== task spec: $f ====" >> /tmp/task.md
+              cat "$f" >> /tmp/task.md
+            done
+            echo "SOURCE=spec" >> "$GITHUB_ENV"
+            echo "::notice::Using task spec(s): $FILES"
+          else
+            # dispatch: explicit frozen text wins; otherwise the GitHub issue body IS the task
+            if [ -n "$DISPATCH_TASK" ]; then
+              printf '%s\n' "$DISPATCH_TASK" > /tmp/task.md
+            elif [ -n "$DISPATCH_ISSUE" ]; then
+              gh issue view "$DISPATCH_ISSUE" --json title,body > /tmp/issue.json
+              jq -r '"# " + .title, "", .body' /tmp/issue.json > /tmp/task.md
+            else
+              echo "::error::workflow_dispatch needs 'task' (frozen text) or 'issue' (its body becomes the task)."
+              exit 1
+            fi
+            echo "SOURCE=dispatch" >> "$GITHUB_ENV"
+            echo "::notice::Dispatch task resolved (issue=${DISPATCH_ISSUE:-none})"
+          fi
 
       - name: Create work branch
         run: |
@@ -57,24 +161,52 @@ jobs:
           git checkout -b "${BRANCH}"
           echo "BRANCH=${BRANCH}" >> "$GITHUB_ENV"
 
-      - name: Run AI agent (write raw code)
+      - name: Run AI agent (implement the frozen spec)
         id: agent
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/douala_trust
         run: |
-          cat > /tmp/prompt.md <<'PROMPT'
-          Implement the following task in this repository working tree. Read the relevant project artifacts (spec in 1-spec/, design in 2-design/, decisions in decisions/) and follow them. Write the raw code and tests required, and run the project's test/lint commands if they exist before finishing.
+          cat > /tmp/prompt.md <<PROMPT
+          You are the opencode implementation agent running on a GitHub Actions Ubuntu runner.
+
+          RULE (non-negotiable): All decisions are ALREADY made and frozen. Do NOT make new
+          implementation decisions, do NOT guess, do NOT ask the user mid-run, and do NOT
+          silently expand or change scope. Implement exactly the frozen task below together
+          with the project's artifacts. If something essential is genuinely missing or
+          ambiguous, implement only what is unambiguous, then record the open decision as a
+          clear note in your final message and in the PR body — never invent a decision and
+          proceed.
+
+          Start by reading CLAUDE.md at the repository root, then the relevant project
+          artifacts (spec in 1-spec/, design in 2-design/, decisions in decisions/, and the
+          component CLAUDE.md under 3-code/) and follow them. Write the raw code and tests
+          required, and run the project's test/lint/typecheck commands before finishing.
+          A PostgreSQL 16 service is running for this job; the DATABASE_URL environment
+          variable points at it, so database-backed verification (e.g. applying migrations
+          from clean) can be executed for real. Leave ALL changes uncommitted in the working
+          tree — do NOT run git add/commit/push; the workflow commits your changes and opens
+          the pull request.
 
           Task:
-          ${{ inputs.task }}
+          $(cat /tmp/task.md)
           PROMPT
+          # inputs.* are empty on push-triggered runs -> fall back to the dispatch defaults
+          MODEL="${{ inputs.model }}"
+          if [ -z "$MODEL" ]; then MODEL="opencode/big-pickle"; fi
+          THINK_FLAG="${{ inputs.thinking }}"
+          AUTO_FLAG="${{ inputs.auto }}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if [ -z "$THINK_FLAG" ]; then THINK_FLAG="true"; fi
+            if [ -z "$AUTO_FLAG" ]; then AUTO_FLAG="true"; fi
+          fi
           THINK=""
-          if [ "${{ inputs.thinking }}" = "true" ]; then THINK="--thinking"; fi
+          if [ "$THINK_FLAG" = "true" ]; then THINK="--thinking"; fi
           AUTO=""
-          if [ "${{ inputs.auto }}" = "true" ]; then AUTO="--auto"; fi
+          if [ "$AUTO_FLAG" = "true" ]; then AUTO="--auto"; fi
           set +e
           /home/runner/.opencode/bin/opencode run ${THINK} ${AUTO} \
-            --model "${{ inputs.model }}" \
+            --model "$MODEL" \
             "$(cat /tmp/prompt.md)"
           EXIT_CODE=$?
           set -e
@@ -90,10 +222,10 @@ jobs:
           else
             git commit -q -m "feat: AI-implemented task (${{ github.run_id }})
 
-Triggered by workflow dispatch.
-opencode exit code: ${{ steps.agent.outputs.exit_code }}"
+          Triggered by ${SOURCE:-dispatch}.
+          opencode exit code: ${{ steps.agent.outputs.exit_code }}"
             echo "NO_CHANGES=false" >> "$GITHUB_ENV"
-            git push -u origin "ai/write/${{ github.run_id }}"
+            git push -u origin "${BRANCH}"
           fi
 
       - name: Open pull request
@@ -101,11 +233,40 @@ opencode exit code: ${{ steps.agent.outputs.exit_code }}"
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          SOURCE="${SOURCE:-dispatch}"
+          ISSUE="${{ inputs.issue }}"
+          if [ "$SOURCE" = "spec" ]; then
+            SPEC_ISSUE=$(sed -n 's/^issue:[[:space:]]*\([0-9]*\).*/\1/p' /tmp/task.md | head -1)
+            if [ -z "$ISSUE" ] && [ -n "$SPEC_ISSUE" ]; then ISSUE="$SPEC_ISSUE"; fi
+          fi
+          # Title: first markdown heading in the task -> the linked issue's title -> run id
+          TITLE=$(grep -m1 '^# ' /tmp/task.md | sed 's/^# *//' || true)
+          if [ -z "$TITLE" ] || [ "$TITLE" = "Task title" ]; then
+            if [ -n "$ISSUE" ]; then
+              TITLE=$(gh issue view "$ISSUE" --json title -q .title 2>/dev/null || true)
+            fi
+          fi
+          if [ -z "$TITLE" ] || [ "$TITLE" = "Task title" ]; then
+            TITLE="AI-implemented task (${{ github.run_id }})"
+          fi
+          LINK_LINE=""
+          if [ -n "$ISSUE" ]; then LINK_LINE="Part of / closes issue #${ISSUE}."; fi
+          cat > /tmp/body.md <<PRBODY
+          Automated PR generated by the **AI Agent — Write Code** workflow (source: ${SOURCE}). ${LINK_LINE}
+
+          Decisions were frozen locally before this run; the agent was instructed not to make new ones.
+
+          ---
+
+          $(cat /tmp/task.md)
+
+          Requires review.
+          PRBODY
           gh pr create \
-            --base "${{ inputs.base_branch }}" \
-            --head "ai/write/${{ github.run_id }}" \
-            --title "AI: ${{ inputs.task }}" \
-            --body "Automated PR generated by the **AI Agent — Write Code** workflow (workflow dispatch). Requires review." || \
+            --base "${BASE}" \
+            --head "${BRANCH}" \
+            --title "${TITLE}" \
+            --body-file /tmp/body.md || \
           echo "::notice::PR may already exist for this branch"
 
       - name: No changes notice
