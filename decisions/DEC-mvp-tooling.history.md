@@ -42,9 +42,12 @@ schema-DSL ORM or the all-Jest ecosystem is more valuable than strictness/simpli
 **Notes**: Approvals captured from the parent agent for issue #5: D1 Fastify, D2 Drizzle +
 drizzle-kit, D3 Vitest, D4 pnpm workspaces, D5 CI design, PWA build tooling Vite, Node 26
 pin (engines `>=24`), buyer-app migration "none".
+2026-10-06: workspace-layout wording correction explicitly delegated to the agent by the
+user ("change the best path yourself for this time").
 
 ## Changelog
 
 | Date | Change | Involvement |
 |------|--------|-------------|
 | 2026-10-02 | Initial decision | ai-proposed/user-approved |
+| 2026-10-06 | Workspace layout wording corrected to match the implementation: `pnpm-workspace.yaml` with explicit `3-code/api` + `3-code/buyer-app` entries instead of a root `package.json` `workspaces` field | ai-proposed/auto-accepted |

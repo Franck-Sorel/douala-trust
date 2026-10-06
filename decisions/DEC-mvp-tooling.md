@@ -8,7 +8,7 @@
 
 **Source**: [DEC-mvp-stack](../decisions/DEC-mvp-stack.md), [architecture.md](../2-design/architecture.md)
 
-**Last updated**: 2026-10-02
+**Last updated**: 2026-10-06
 
 ## Context
 
@@ -24,9 +24,11 @@ toolchain so issue #5's scaffold and every subsequent code task follow one conve
 The MVP scaffolding uses the following concrete tools, applied to both `api` and
 `buyer-app` components:
 
-- **Package manager / layout**: pnpm workspaces, root `package.json` with `api` and
-  `buyer-app` workspaces; Node version pinned via `.nvmrc` (Node 26) with
-  `packageManager` and a permissive `engines.node` (`>=24`) to tolerate the local Node 24.
+- **Package manager / layout**: pnpm workspaces, declared in `pnpm-workspace.yaml` at the
+  repo root with the explicit package entries `3-code/api` and `3-code/buyer-app` (the
+  pnpm-native file, not a root `package.json` `workspaces` field); Node version pinned via
+  `.nvmrc` (Node 26) with `packageManager` and a permissive `engines.node` (`>=24`) to
+  tolerate the local Node 24.
 - **Backend web framework**: Fastify (TypeScript-first).
 - **ORM + migrations**: Drizzle ORM with the `node-postgres` driver, plus `drizzle-kit`
   for committed, versioned migrations under `3-code/api/db/migrations/`.
@@ -50,7 +52,8 @@ The MVP scaffolding uses the following concrete tools, applied to both `api` and
 
 ### Required patterns
 
-- pnpm workspace layout: `package.json` at repo root declaring `workspaces: ["api", "buyer-app"]`.
+- pnpm workspace layout: `pnpm-workspace.yaml` at repo root declaring the packages
+  `3-code/api` and `3-code/buyer-app`; never a root `package.json` `workspaces` field.
 - Fastify for the API HTTP layer; strict `tsconfig.json` (`strict: true`).
 - Drizzle + `drizzle-kit` for the API; every migration is committed and versioned in
   `3-code/api/db/migrations/`.
