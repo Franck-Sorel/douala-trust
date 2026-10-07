@@ -2,6 +2,11 @@ name: AI Agent — Review PR
 
 # Manual only. Dispatches an opencode agent to review an open pull request from its diff
 # and posts the findings as a PR review comment.
+#
+# Skills and prompts are downloaded at runtime from:
+#   - github.com/awesome-skills/code-review-skill  → ~/.claude/skills/code-review-skill/
+#   - github.com/dcarrero/awesome-code-review-prompts  → ~/.claude/skills/awesome-review-prompts/
+# so opencode discovers them through its normal skill-resolution path.
 on:
   workflow_dispatch:
     inputs:
@@ -40,25 +45,49 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr view "${{ inputs.pr_number }}" --json headRefName,baseRefName,title,body \
+          gh pr view "${{ inputs.pr_number }}" \
+            --json headRefName,baseRefName,title,body \
             > /tmp/pr-meta.json
           gh pr diff "${{ inputs.pr_number }}" > /tmp/pr.diff
           echo "::notice::Captured PR diff ($(wc -l </tmp/pr.diff) lines)"
+
+      - name: Download skills at runtime
+        run: |
+          # ── code-review-skill (awesome-skills/code-review-skill) ──────────────
+          # Full skill with language-specific reference guides
+          SKILL_DIR="${HOME}/.claude/skills/code-review-skill"
+          mkdir -p "${SKILL_DIR}"
+          curl -fsSL \
+            "https://raw.githubusercontent.com/awesome-skills/code-review-skill/main/SKILL.md" \
+            -o "${SKILL_DIR}/SKILL.md"
+          echo "::notice::Downloaded code-review-skill/SKILL.md"
+
+          # ── awesome-code-review-prompts (dcarrero) ─────────────────────────────
+          # All-in-one master prompt + individual passes for deep dives
+          PROMPTS_DIR="${HOME}/.claude/skills/awesome-review-prompts"
+          mkdir -p "${PROMPTS_DIR}"
+          for file in all-in-one security code-quality performance; do
+            curl -fsSL \
+              "https://raw.githubusercontent.com/dcarrero/awesome-code-review-prompts/main/prompts/general/${file}.md" \
+              -o "${PROMPTS_DIR}/${file}.md"
+            echo "::notice::Downloaded awesome-review-prompts/${file}.md"
+          done
+
+          echo "Installed skills:"
+          find "${HOME}/.claude/skills" -name "*.md" | sort | sed 's|^|  |'
+
+      - name: Build prompt
+        run: |
+          sed "s/{{PR_NUMBER}}/${{ inputs.pr_number }}/g" \
+            .github/prompts/review-pr.md \
+            > /tmp/prompt.md
+          echo "::notice::Prompt ready ($(wc -l </tmp/prompt.md) lines)"
 
       - name: Run AI reviewer
         id: agent
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cat > /tmp/prompt.md <<PROMPT
-          You are a senior code reviewer. Review GitHub Pull Request #${{ inputs.pr_number }} of this repository.
-
-          PR title: $(jq -r .title /tmp/pr-meta.json)
-
-          Read the diff at /tmp/pr.diff and read the relevant project artifacts (spec 1-spec/, design 2-design/, decisions decisions/, and the active ADR register docs/adr/). Verify the change is consistent with them. Check correctness, security, and maintainability. Report concrete, actionable findings with file:line references.
-
-          After reviewing, save your report to /tmp/review-output.md.
-          PROMPT
           AUTO=""
           if [ "${{ inputs.auto }}" = "true" ]; then AUTO="--auto"; fi
           set +e
@@ -72,7 +101,7 @@ jobs:
           if [ -f /tmp/review-output.md ]; then
             cp /tmp/review-output.md /tmp/final-review.md
           else
-            echo "AI produced no explicit report; using agent log." >&2
+            echo "::warning::Agent produced no explicit report; falling back to agent log."
             cp /tmp/agent.log /tmp/final-review.md
           fi
 
@@ -81,7 +110,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ ! -s /tmp/final-review.md ]; then
-            echo "::notice::AI produced no review output."
+            echo "::notice::AI produced no review output — skipping comment."
             exit 0
           fi
           gh pr review "${{ inputs.pr_number }}" \

@@ -57,17 +57,43 @@ jobs:
           git checkout -b "${BRANCH}"
           echo "BRANCH=${BRANCH}" >> "$GITHUB_ENV"
 
+      - name: Download skills at runtime
+        run: |
+          # ── code-review-skill — used post-implementation for self-review ───────
+          SKILL_DIR="${HOME}/.claude/skills/code-review-skill"
+          mkdir -p "${SKILL_DIR}"
+          curl -fsSL \
+            "https://raw.githubusercontent.com/awesome-skills/code-review-skill/main/SKILL.md" \
+            -o "${SKILL_DIR}/SKILL.md"
+          echo "::notice::Downloaded code-review-skill/SKILL.md"
+
+          # ── awesome-code-review-prompts — agent uses these for self-QA ─────────
+          PROMPTS_DIR="${HOME}/.claude/skills/awesome-review-prompts"
+          mkdir -p "${PROMPTS_DIR}"
+          for file in all-in-one security code-quality; do
+            curl -fsSL \
+              "https://raw.githubusercontent.com/dcarrero/awesome-code-review-prompts/main/prompts/general/${file}.md" \
+              -o "${PROMPTS_DIR}/${file}.md"
+            echo "::notice::Downloaded awesome-review-prompts/${file}.md"
+          done
+
+          echo "Installed skills:"
+          find "${HOME}/.claude/skills" -name "*.md" | sort | sed 's|^|  |'
+
+      - name: Build prompt
+        run: |
+          # Substitute {{TASK}} placeholder from the versioned template
+          TASK="${{ inputs.task }}"
+          sed "s|{{TASK}}|${TASK}|g" \
+            .github/prompts/implement.md \
+            > /tmp/prompt.md
+          echo "::notice::Prompt ready ($(wc -l </tmp/prompt.md) lines)"
+
       - name: Run AI agent (write raw code)
         id: agent
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          cat > /tmp/prompt.md <<'PROMPT'
-          Implement the following task in this repository working tree. Read the relevant project artifacts (spec in 1-spec/, design in 2-design/, decisions in decisions/) and follow them. Write the raw code and tests required, and run the project's test/lint commands if they exist before finishing.
-
-          Task:
-          ${{ inputs.task }}
-          PROMPT
           THINK=""
           if [ "${{ inputs.thinking }}" = "true" ]; then THINK="--thinking"; fi
           AUTO=""
